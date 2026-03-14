@@ -63,7 +63,10 @@ def create_vectorstore(_docs, api_key):
         )
     )
 
-api_key = st.secrets.get("GOOGLE_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+try:
+    api_key = st.secrets["GOOGLE_API_KEY"]
+except:
+    api_key = os.environ.get("GOOGLE_API_KEY")
 if not api_key:
     st.error("❌ GOOGLE_API_KEY not found.")
     st.stop()
@@ -73,7 +76,7 @@ retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
 # ======================================
 # 7️⃣ INITIALIZE LLM
 # ======================================
-gemini_key = st.secrets.get("GOOGLE_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+gemini_key = api_key
 llm = ChatGoogleGenerativeAI(
     model="gemini-flash-latest",
     temperature=0.3,

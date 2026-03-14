@@ -1,0 +1,24 @@
+langchain
+langchain-community
+python-dotenv
+langchain-google-genai
+google-generativeai
+streamlit
+sentence-transformers
+langchain-chroma
+langchainhub
+unstructured
+langchain-text-splitters
+ipykernel
+
+
+# Library Purpose
+#langchain :- Framework to build LLM apps
+ #langchain_google-genai :- Connect genai models
+ #streamlit :- Web UI for chatbot
+  #sentence-transformers :- Create embeddings
+   #langchain_chroma :- Vector database
+   #unstructured :- Load PDFs, docs
+    #langchain-text-splitters :- Split documents into chunks
+     #ipykernel Run Jupyter notebooks give me gor google api key
+

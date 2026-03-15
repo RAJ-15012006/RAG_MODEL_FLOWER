@@ -113,14 +113,22 @@ Answer:
 # ======================================
 # 9️⃣ STREAMLIT CHAT INTERFACE
 # ======================================
+if "history" not in st.session_state:
+    st.session_state.history = []
+
+for q, a in st.session_state.history:
+    with st.chat_message("user"):
+        st.write(q)
+    with st.chat_message("assistant"):
+        st.write(a)
+
 user_question = st.chat_input("Ask a question about flowers...")
 
 if user_question:
+    with st.chat_message("user"):
+        st.write(user_question)
     with st.spinner("🌱 Searching knowledge..."):
         answer = ask_rag(user_question)
-
-    st.markdown("### ❓ Question")
-    st.write(user_question)
-
-    st.markdown("### 🌼 Answer")
-    st.write(answer)
+    with st.chat_message("assistant"):
+        st.write(answer)
+    st.session_state.history.append((user_question, answer))

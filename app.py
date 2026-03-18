@@ -207,7 +207,7 @@ html, body, [data-testid="stAppViewContainer"] {
 
 /* ── Input Form ── */
 [data-testid="stForm"] {
-    background: rgba(253,246,236,0.95) !important;
+    background: rgba(194,24,91,0.75) !important;
     border: 2px solid #F48FB1 !important;
     border-radius: 30px !important;
     padding: 0.3rem 0.8rem !important;
@@ -217,8 +217,11 @@ html, body, [data-testid="stAppViewContainer"] {
     font-family: 'Lora', serif !important;
     background: transparent !important;
     border: none !important;
-    color: #3E2723 !important;
+    color: #ffffff !important;
     font-size: 0.97rem !important;
+}
+[data-testid="stTextInput"] input::placeholder {
+    color: rgba(255,255,255,0.6) !important;
 }
 [data-testid="stTextInput"] input:focus {
     box-shadow: none !important;

@@ -229,6 +229,26 @@ html, body, [data-testid="stAppViewContainer"] {
     box-shadow: 0 6px 18px rgba(194,24,91,0.5) !important;
 }
 
+/* ── Suggestion Chips ── */
+.sugg-row {
+    margin-top: 0.7rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    font-size: 0.82rem;
+    color: #7B5EA7;
+}
+.sugg-chip {
+    background: rgba(194,24,91,0.08);
+    border: 1px solid rgba(194,24,91,0.3);
+    border-radius: 20px;
+    padding: 0.25rem 0.7rem;
+    color: #C2185B;
+    font-family: 'Lora', serif;
+    font-style: italic;
+    cursor: default;
+}
+
 /* ── Spinner ── */
 [data-testid="stSpinner"] { color: #C2185B !important; }
 
@@ -330,6 +350,9 @@ def ask_rag(question):
 You are a factual question-answering assistant.
 Use ONLY the information provided in the context.
 If the answer is not present, say: "I don't know".
+At the end of your answer, add a new line and write exactly:
+SUGGESTED: <question1> | <question2> | <question3>
+Suggested questions must be related to flowers and based on the context.
 
 Context:
 {context}
@@ -341,8 +364,17 @@ Answer:
     response = llm.invoke(prompt)
     content = response.content
     if isinstance(content, list):
-        return "".join(block.get("text", "") for block in content if isinstance(block, dict))
-    return content
+        content = "".join(block.get("text", "") for block in content if isinstance(block, dict))
+
+    if "SUGGESTED:" in content:
+        parts = content.split("SUGGESTED:")
+        answer = parts[0].strip()
+        suggestions = [s.strip() for s in parts[1].split("|")]
+    else:
+        answer = content.strip()
+        suggestions = []
+
+    return answer, suggestions
 
 # ======================================
 # CHAT INTERFACE
@@ -355,12 +387,17 @@ user_question = st.chat_input("🌺 Ask a question about flowers...")
 
 if user_question:
     with st.spinner("🌱 Searching the garden of knowledge..."):
-        answer = ask_rag(user_question)
-    st.session_state.history.append((user_question, answer))
+        answer, suggestions = ask_rag(user_question)
+    st.session_state.history.append((user_question, answer, suggestions))
 
 # Render chat history
 chat_html = '<div class="chat-wrapper">'
-for q, a in st.session_state.history:
+for entry in st.session_state.history:
+    q, a, suggs = entry
+    sugg_html = ""
+    if suggs:
+        sugg_buttons = "".join(f'<span class="sugg-chip">{s}</span>' for s in suggs)
+        sugg_html = f'<div class="sugg-row">💡 {sugg_buttons}</div>'
     chat_html += f"""
     <div class="user-row">
         <div class="user-bubble">{q}</div>
@@ -368,7 +405,7 @@ for q, a in st.session_state.history:
     </div>
     <div class="bot-row">
         <div class="bot-avatar">🤖</div>
-        <div class="bot-bubble">{a}</div>
+        <div class="bot-bubble">{a}{sugg_html}</div>
     </div>
     """
 chat_html += '</div>'

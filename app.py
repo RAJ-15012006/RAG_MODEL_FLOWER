@@ -394,27 +394,6 @@ Answer:
 if "history" not in st.session_state:
     st.session_state.history = []
 
-# Render chat history
-chat_html = '<div class="chat-wrapper">'
-for entry in st.session_state.history:
-    q, a, suggs = entry
-    sugg_html = ""
-    if suggs:
-        sugg_buttons = "".join(f'<span class="sugg-chip">{s}</span>' for s in suggs)
-        sugg_html = f'<div class="sugg-row">💡 {sugg_buttons}</div>'
-    chat_html += f"""
-    <div class="user-row">
-        <div class="user-bubble">{q}</div>
-        <div class="user-avatar">🌷</div>
-    </div>
-    <div class="bot-row">
-        <div class="bot-avatar">🤖</div>
-        <div class="bot-bubble">{a}{sugg_html}</div>
-    </div>
-    """
-chat_html += '</div>'
-st.markdown(chat_html, unsafe_allow_html=True)
-
 # Chat input form
 with st.form(key="chat_form", clear_on_submit=True):
     col1, col2 = st.columns([8, 1])
@@ -427,4 +406,21 @@ if submitted and user_question.strip():
     with st.spinner("🌱 Searching the garden of knowledge..."):
         answer, suggestions = ask_rag(user_question.strip())
     st.session_state.history.append((user_question.strip(), answer, suggestions))
-    st.rerun()
+
+# Render chat history
+for entry in st.session_state.history:
+    q, a, suggs = entry
+    st.markdown(f"""
+    <div class="user-row">
+        <div class="user-bubble">{q}</div>
+        <div class="user-avatar">🌷</div>
+    </div>""", unsafe_allow_html=True)
+    sugg_html = ""
+    if suggs:
+        sugg_buttons = "".join(f'<span class="sugg-chip">{s}</span>' for s in suggs)
+        sugg_html = f'<div class="sugg-row">💡 {sugg_buttons}</div>'
+    st.markdown(f"""
+    <div class="bot-row">
+        <div class="bot-avatar">🤖</div>
+        <div class="bot-bubble">{a}{sugg_html}</div>
+    </div>""", unsafe_allow_html=True)

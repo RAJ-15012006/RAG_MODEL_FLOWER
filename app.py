@@ -350,6 +350,14 @@ Answer:
 if "history" not in st.session_state:
     st.session_state.history = []
 
+# Chat input
+user_question = st.chat_input("🌺 Ask a question about flowers...")
+
+if user_question:
+    with st.spinner("🌱 Searching the garden of knowledge..."):
+        answer = ask_rag(user_question)
+    st.session_state.history.append((user_question, answer))
+
 # Render chat history
 chat_html = '<div class="chat-wrapper">'
 for q, a in st.session_state.history:
@@ -365,12 +373,3 @@ for q, a in st.session_state.history:
     """
 chat_html += '</div>'
 st.markdown(chat_html, unsafe_allow_html=True)
-
-# Chat input
-user_question = st.chat_input("🌺 Ask a question about flowers...")
-
-if user_question:
-    with st.spinner("🌱 Searching the garden of knowledge..."):
-        answer = ask_rag(user_question)
-    st.session_state.history.append((user_question, answer))
-    st.rerun()

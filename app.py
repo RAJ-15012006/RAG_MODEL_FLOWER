@@ -204,27 +204,36 @@ html, body, [data-testid="stAppViewContainer"] {
 
 /* ── Hide default Streamlit chat UI ── */
 [data-testid="stChatMessage"] { display: none !important; }
-[data-testid="stChatInput"] textarea {
-    font-family: 'Lora', serif !important;
+
+/* ── Input Form ── */
+[data-testid="stForm"] {
     background: rgba(253,246,236,0.95) !important;
     border: 2px solid #F48FB1 !important;
     border-radius: 30px !important;
-    padding: 0.8rem 1.2rem !important;
+    padding: 0.3rem 0.8rem !important;
+    box-shadow: 0 4px 15px rgba(194,24,91,0.15) !important;
+}
+[data-testid="stTextInput"] input {
+    font-family: 'Lora', serif !important;
+    background: transparent !important;
+    border: none !important;
     color: #3E2723 !important;
     font-size: 0.97rem !important;
 }
-[data-testid="stChatInput"] textarea:focus {
-    border-color: #C2185B !important;
-    box-shadow: 0 0 12px rgba(194,24,91,0.25) !important;
+[data-testid="stTextInput"] input:focus {
+    box-shadow: none !important;
     outline: none !important;
 }
-[data-testid="stChatInput"] button {
+[data-testid="stForm"] [data-testid="stFormSubmitButton"] button {
     background: linear-gradient(135deg, #C2185B, #9C27B0) !important;
     border-radius: 50% !important;
+    border: none !important;
     box-shadow: 0 4px 12px rgba(194,24,91,0.4) !important;
-    transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+    color: white !important;
+    font-size: 1.2rem !important;
+    transition: transform 0.2s ease !important;
 }
-[data-testid="stChatInput"] button:hover {
+[data-testid="stForm"] [data-testid="stFormSubmitButton"] button:hover {
     transform: translateY(-2px) !important;
     box-shadow: 0 6px 18px rgba(194,24,91,0.5) !important;
 }
@@ -382,14 +391,6 @@ Answer:
 if "history" not in st.session_state:
     st.session_state.history = []
 
-# Chat input
-user_question = st.chat_input("🌺 Ask a question about flowers...")
-
-if user_question:
-    with st.spinner("🌱 Searching the garden of knowledge..."):
-        answer, suggestions = ask_rag(user_question)
-    st.session_state.history.append((user_question, answer, suggestions))
-
 # Render chat history
 chat_html = '<div class="chat-wrapper">'
 for entry in st.session_state.history:
@@ -410,3 +411,17 @@ for entry in st.session_state.history:
     """
 chat_html += '</div>'
 st.markdown(chat_html, unsafe_allow_html=True)
+
+# Chat input form
+with st.form(key="chat_form", clear_on_submit=True):
+    col1, col2 = st.columns([8, 1])
+    with col1:
+        user_question = st.text_input("", placeholder="🌺 Ask a question about flowers...", label_visibility="collapsed")
+    with col2:
+        submitted = st.form_submit_button("🌸")
+
+if submitted and user_question.strip():
+    with st.spinner("🌱 Searching the garden of knowledge..."):
+        answer, suggestions = ask_rag(user_question.strip())
+    st.session_state.history.append((user_question.strip(), answer, suggestions))
+    st.rerun()

@@ -295,7 +295,7 @@ if not api_key:
 # ======================================
 # VECTOR DATABASE
 # ======================================
-@st.cache_resource(show_spinner=False)
+@st.cache_resource(show_spinner=False, ttl=3600)
 def create_vectorstore(_docs, api_key):
     return Chroma.from_documents(
         _docs,

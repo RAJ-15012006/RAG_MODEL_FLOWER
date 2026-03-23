@@ -288,7 +288,7 @@ html, body, [data-testid="stAppViewContainer"] {
 st.markdown("""
 <div class="header-container">
     <div class="header-title">🌸 Flowers Knowledge RAG App</div>
-    <div class="header-subtitle">Ask anything about flowers — powered by Google Gemini & LangChain</div>
+    <div class="header-subtitle">RAG Model for Flowers</div>
 </div>
 """, unsafe_allow_html=True)
 

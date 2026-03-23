@@ -394,19 +394,6 @@ Answer:
 if "history" not in st.session_state:
     st.session_state.history = []
 
-# Chat input form
-with st.form(key="chat_form", clear_on_submit=True):
-    col1, col2 = st.columns([8, 1])
-    with col1:
-        user_question = st.text_input("", placeholder="🌺 Ask a question about flowers...", label_visibility="collapsed")
-    with col2:
-        submitted = st.form_submit_button("🌸")
-
-if submitted and user_question.strip():
-    with st.spinner("🌱 Searching the garden of knowledge..."):
-        answer, suggestions = ask_rag(user_question.strip())
-    st.session_state.history.append((user_question.strip(), answer, suggestions))
-
 # Render chat history
 for entry in st.session_state.history:
     q, a, suggs = entry
@@ -424,3 +411,17 @@ for entry in st.session_state.history:
         <div class="bot-avatar">🤖</div>
         <div class="bot-bubble">{a}{sugg_html}</div>
     </div>""", unsafe_allow_html=True)
+
+# Chat input form always at bottom
+with st.form(key="chat_form", clear_on_submit=True):
+    col1, col2 = st.columns([8, 1])
+    with col1:
+        user_question = st.text_input("", placeholder="🌺 Ask a question about flowers...", label_visibility="collapsed")
+    with col2:
+        submitted = st.form_submit_button("🌸")
+
+if submitted and user_question.strip():
+    with st.spinner("🌱 Searching the garden of knowledge..."):
+        answer, suggestions = ask_rag(user_question.strip())
+    st.session_state.history.append((user_question.strip(), answer, suggestions))
+    st.rerun()

@@ -1,0 +1,9 @@
+langchain
+langchain-community
+python-dotenv
+langchain-google-genai
+google-generativeai
+streamlit
+langchain-chroma
+langchain-text-splitters
+pydantic>=2.0

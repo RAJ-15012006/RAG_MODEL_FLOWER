@@ -351,7 +351,7 @@ retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
 # LLM
 # ======================================
 llm = ChatGoogleGenerativeAI(
-    model="gemini-1.5-flash",
+    model="gemini-2.0-flash",
     temperature=0.3,
     google_api_key=api_key
 )

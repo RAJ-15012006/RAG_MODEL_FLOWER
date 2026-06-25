@@ -10,9 +10,19 @@ from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmb
 # BASIC SETUP
 # ======================================
 import os
+import time
 import streamlit as st
 from dotenv import load_dotenv
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_message
 load_dotenv(override=True)
+
+# ======================================
+# RETRY HELPER
+# ======================================
+def is_retryable_error(exception):
+    """Check if an exception is a retryable 429/resource-exhausted error."""
+    err_str = str(exception).lower()
+    return "429" in err_str or "resource_exhausted" in err_str or "quota" in err_str
 
 # ======================================
 # PAGE CONFIG
@@ -334,22 +344,50 @@ os.environ["GOOGLE_API_KEY"] = api_key
 # ======================================
 # VECTOR DATABASE
 # ======================================
-@st.cache_resource(show_spinner=False, ttl=3600)
+CHROMA_PERSIST_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chroma_db")
+
+@st.cache_resource(show_spinner=False)
 def create_vectorstore(_docs, api_key):
-    try:
-        return Chroma.from_documents(
-            _docs,
-            GoogleGenerativeAIEmbeddings(
-                model="models/gemini-embedding-2",
-                google_api_key=api_key
+    """Create or load a persistent ChromaDB vector store.
+    Persists to disk so embeddings are only computed once, not on every cold start."""
+    embeddings = GoogleGenerativeAIEmbeddings(
+        model="models/gemini-embedding-2",
+        google_api_key=api_key
+    )
+    # If persistent DB already exists, just load it (no embedding API calls)
+    if os.path.exists(CHROMA_PERSIST_DIR) and os.listdir(CHROMA_PERSIST_DIR):
+        try:
+            return Chroma(
+                persist_directory=CHROMA_PERSIST_DIR,
+                embedding_function=embeddings
             )
-        )
-    except Exception as e:
-        st.error(f"❌ Vectorstore error: {str(e)}")
-        st.stop()
+        except Exception:
+            pass  # Fall through to rebuild
+
+    # Build from scratch with retry logic for 429 errors
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            return Chroma.from_documents(
+                _docs,
+                embeddings,
+                persist_directory=CHROMA_PERSIST_DIR
+            )
+        except Exception as e:
+            if is_retryable_error(e) and attempt < max_retries - 1:
+                wait_time = 2 ** attempt * 15  # 15s, 30s, 60s
+                st.warning(f"⏳ Embedding quota hit. Retrying in {wait_time}s... (attempt {attempt + 2}/{max_retries})")
+                time.sleep(wait_time)
+            else:
+                st.error(f"❌ Vectorstore error: {str(e)}")
+                if is_retryable_error(e):
+                    st.info("💡 **Tip:** Your Gemini API free tier quota is exhausted. "
+                            "Wait for the daily quota to reset (~24hrs), or enable billing "
+                            "in Google Cloud Console for higher limits.")
+                st.stop()
 
 vectorstore = create_vectorstore(docs, api_key)
-retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
+retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
 
 # ======================================
 # LLM
@@ -357,7 +395,8 @@ retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
 llm = ChatGoogleGenerativeAI(
     model="gemini-2.0-flash",
     temperature=0.3,
-    google_api_key=api_key
+    google_api_key=api_key,
+    max_retries=3
 )
 
 # ======================================
@@ -384,7 +423,21 @@ Question: {question}
 
 Answer:
 """
-    response = llm.invoke(prompt)
+    # Retry LLM call with exponential backoff on 429 errors
+    max_retries = 3
+    last_error = None
+    for attempt in range(max_retries):
+        try:
+            response = llm.invoke(prompt)
+            break
+        except Exception as e:
+            last_error = e
+            if is_retryable_error(e) and attempt < max_retries - 1:
+                wait_time = 2 ** attempt * 15  # 15s, 30s, 60s
+                time.sleep(wait_time)
+            else:
+                raise
+
     content = response.content
     if isinstance(content, list):
         content = "".join(block.get("text", "") for block in content if isinstance(block, dict))
@@ -438,4 +491,16 @@ if submitted and user_question.strip():
             st.session_state.history.append((user_question.strip(), answer, suggestions))
             st.rerun()
         except Exception as e:
-            st.error(f"❌ Error: {str(e)}")
+            err_str = str(e).lower()
+            if "429" in err_str or "resource_exhausted" in err_str or "quota" in err_str:
+                st.error("🚫 **API Quota Exhausted**")
+                st.warning(
+                    "Your Gemini API free tier quota has been exceeded. "
+                    "This usually resets daily. Here's what you can do:\n\n"
+                    "1. **Wait** — Free tier quotas reset every 24 hours\n"
+                    "2. **Enable billing** — Upgrade your Google Cloud project for higher limits\n"
+                    "3. **Try again later** — The quota may refresh in a few minutes for rate limits\n\n"
+                    "For more info: [Gemini API Rate Limits](https://ai.google.dev/gemini-api/docs/rate-limits)"
+                )
+            else:
+                st.error(f"❌ Error: {str(e)}")

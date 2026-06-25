@@ -429,6 +429,9 @@ with st.form(key="chat_form", clear_on_submit=True):
 
 if submitted and user_question.strip():
     with st.spinner("🌱 Searching the garden of knowledge..."):
-        answer, suggestions = ask_rag(user_question.strip())
-    st.session_state.history.append((user_question.strip(), answer, suggestions))
-    st.rerun()
+        try:
+            answer, suggestions = ask_rag(user_question.strip())
+            st.session_state.history.append((user_question.strip(), answer, suggestions))
+            st.rerun()
+        except Exception as e:
+            st.error(f"❌ Error: {str(e)}")

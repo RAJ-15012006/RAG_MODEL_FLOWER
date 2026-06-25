@@ -336,13 +336,17 @@ os.environ["GOOGLE_API_KEY"] = api_key
 # ======================================
 @st.cache_resource(show_spinner=False, ttl=3600)
 def create_vectorstore(_docs, api_key):
-    return Chroma.from_documents(
-        _docs,
-        GoogleGenerativeAIEmbeddings(
-            model="models/gemini-embedding-001",
-            google_api_key=api_key
+    try:
+        return Chroma.from_documents(
+            _docs,
+            GoogleGenerativeAIEmbeddings(
+                model="models/text-embedding-004",
+                google_api_key=api_key
+            )
         )
-    )
+    except Exception as e:
+        st.error(f"❌ Vectorstore error: {str(e)}")
+        st.stop()
 
 vectorstore = create_vectorstore(docs, api_key)
 retriever = vectorstore.as_retriever(search_kwargs={"k": 5})

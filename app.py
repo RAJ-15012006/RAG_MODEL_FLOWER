@@ -315,14 +315,21 @@ docs = split_documents(documents)
 # ======================================
 # API KEY
 # ======================================
-try:
-    api_key = st.secrets["GOOGLE_API_KEY"]
-except:
-    api_key = os.environ.get("GOOGLE_API_KEY")
+api_key = None
+for key in ["GOOGLE_API_KEY", "GEMINI_API_KEY"]:
+    try:
+        api_key = st.secrets[key]
+        break
+    except:
+        api_key = os.environ.get(key)
+        if api_key:
+            break
 
 if not api_key:
-    st.error("❌ GOOGLE_API_KEY not found.")
+    st.error("❌ GOOGLE_API_KEY not found. Add it in Streamlit Cloud → Settings → Secrets.")
     st.stop()
+
+os.environ["GOOGLE_API_KEY"] = api_key
 
 # ======================================
 # VECTOR DATABASE

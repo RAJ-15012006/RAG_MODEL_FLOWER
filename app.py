@@ -4,7 +4,8 @@
 from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+from langchain_groq import ChatGroq
+from langchain_huggingface import HuggingFaceEmbeddings
 
 # ======================================
 # BASIC SETUP
@@ -13,16 +14,7 @@ import os
 import time
 import streamlit as st
 from dotenv import load_dotenv
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_message
 load_dotenv(override=True)
-
-# ======================================
-# RETRY HELPER
-# ======================================
-def is_retryable_error(exception):
-    """Check if an exception is a retryable 429/resource-exhausted error."""
-    err_str = str(exception).lower()
-    return "429" in err_str or "resource_exhausted" in err_str or "quota" in err_str
 
 # ======================================
 # PAGE CONFIG
@@ -323,38 +315,39 @@ def split_documents(_docs):
 docs = split_documents(documents)
 
 # ======================================
-# API KEY
+# API KEY (GROQ)
 # ======================================
-api_key = None
-for key in ["GOOGLE_API_KEY", "GEMINI_API_KEY"]:
+groq_api_key = None
+for key in ["GROQ_API_KEY"]:
     try:
-        api_key = st.secrets[key]
+        groq_api_key = st.secrets[key]
         break
     except:
-        api_key = os.environ.get(key)
-        if api_key:
+        groq_api_key = os.environ.get(key)
+        if groq_api_key:
             break
 
-if not api_key:
-    st.error("❌ GOOGLE_API_KEY not found. Add it in Streamlit Cloud → Settings → Secrets.")
+if not groq_api_key:
+    st.error("❌ GROQ_API_KEY not found. Add it in Streamlit Cloud → Settings → Secrets.")
     st.stop()
 
-os.environ["GOOGLE_API_KEY"] = api_key
+os.environ["GROQ_API_KEY"] = groq_api_key
 
 # ======================================
-# VECTOR DATABASE
+# VECTOR DATABASE (HuggingFace Embeddings - FREE, runs locally)
 # ======================================
 CHROMA_PERSIST_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chroma_db")
 
-@st.cache_resource(show_spinner=False)
-def create_vectorstore(_docs, api_key):
+@st.cache_resource(show_spinner="🌱 Building flower knowledge base...")
+def create_vectorstore(_docs):
     """Create or load a persistent ChromaDB vector store.
-    Persists to disk so embeddings are only computed once, not on every cold start."""
-    embeddings = GoogleGenerativeAIEmbeddings(
-        model="models/gemini-embedding-2",
-        google_api_key=api_key
+    Uses HuggingFace embeddings that run locally - no API calls or quotas needed."""
+    embeddings = HuggingFaceEmbeddings(
+        model_name="all-MiniLM-L6-v2",
+        model_kwargs={"device": "cpu"},
+        encode_kwargs={"normalize_embeddings": True}
     )
-    # If persistent DB already exists, just load it (no embedding API calls)
+    # If persistent DB already exists, just load it
     if os.path.exists(CHROMA_PERSIST_DIR) and os.listdir(CHROMA_PERSIST_DIR):
         try:
             return Chroma(
@@ -364,38 +357,27 @@ def create_vectorstore(_docs, api_key):
         except Exception:
             pass  # Fall through to rebuild
 
-    # Build from scratch with retry logic for 429 errors
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            return Chroma.from_documents(
-                _docs,
-                embeddings,
-                persist_directory=CHROMA_PERSIST_DIR
-            )
-        except Exception as e:
-            if is_retryable_error(e) and attempt < max_retries - 1:
-                wait_time = 2 ** attempt * 15  # 15s, 30s, 60s
-                st.warning(f"⏳ Embedding quota hit. Retrying in {wait_time}s... (attempt {attempt + 2}/{max_retries})")
-                time.sleep(wait_time)
-            else:
-                st.error(f"❌ Vectorstore error: {str(e)}")
-                if is_retryable_error(e):
-                    st.info("💡 **Tip:** Your Gemini API free tier quota is exhausted. "
-                            "Wait for the daily quota to reset (~24hrs), or enable billing "
-                            "in Google Cloud Console for higher limits.")
-                st.stop()
+    # Build from scratch (runs locally, no API needed)
+    try:
+        return Chroma.from_documents(
+            _docs,
+            embeddings,
+            persist_directory=CHROMA_PERSIST_DIR
+        )
+    except Exception as e:
+        st.error(f"❌ Vectorstore error: {str(e)}")
+        st.stop()
 
-vectorstore = create_vectorstore(docs, api_key)
+vectorstore = create_vectorstore(docs)
 retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
 
 # ======================================
-# LLM
+# LLM (GROQ - Fast & Free Tier)
 # ======================================
-llm = ChatGoogleGenerativeAI(
-    model="gemini-2.0-flash",
+llm = ChatGroq(
+    model="llama-3.3-70b-versatile",
     temperature=0.3,
-    google_api_key=api_key,
+    groq_api_key=groq_api_key,
     max_retries=3
 )
 
@@ -423,20 +405,7 @@ Question: {question}
 
 Answer:
 """
-    # Retry LLM call with exponential backoff on 429 errors
-    max_retries = 3
-    last_error = None
-    for attempt in range(max_retries):
-        try:
-            response = llm.invoke(prompt)
-            break
-        except Exception as e:
-            last_error = e
-            if is_retryable_error(e) and attempt < max_retries - 1:
-                wait_time = 2 ** attempt * 15  # 15s, 30s, 60s
-                time.sleep(wait_time)
-            else:
-                raise
+    response = llm.invoke(prompt)
 
     content = response.content
     if isinstance(content, list):
@@ -492,15 +461,12 @@ if submitted and user_question.strip():
             st.rerun()
         except Exception as e:
             err_str = str(e).lower()
-            if "429" in err_str or "resource_exhausted" in err_str or "quota" in err_str:
-                st.error("🚫 **API Quota Exhausted**")
+            if "429" in err_str or "rate_limit" in err_str or "quota" in err_str:
+                st.error("🚫 **Rate Limit Hit**")
                 st.warning(
-                    "Your Gemini API free tier quota has been exceeded. "
-                    "This usually resets daily. Here's what you can do:\n\n"
-                    "1. **Wait** — Free tier quotas reset every 24 hours\n"
-                    "2. **Enable billing** — Upgrade your Google Cloud project for higher limits\n"
-                    "3. **Try again later** — The quota may refresh in a few minutes for rate limits\n\n"
-                    "For more info: [Gemini API Rate Limits](https://ai.google.dev/gemini-api/docs/rate-limits)"
+                    "Too many requests to Groq API. Please wait a moment and try again.\n\n"
+                    "Groq free tier allows ~30 requests/minute. Just wait a few seconds!\n\n"
+                    "For more info: [Groq Rate Limits](https://console.groq.com/docs/rate-limits)"
                 )
             else:
                 st.error(f"❌ Error: {str(e)}")

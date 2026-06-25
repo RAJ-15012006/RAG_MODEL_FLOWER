@@ -340,7 +340,7 @@ def create_vectorstore(_docs, api_key):
         return Chroma.from_documents(
             _docs,
             GoogleGenerativeAIEmbeddings(
-                model="models/text-embedding-004",
+                model="models/gemini-embedding-2",
                 google_api_key=api_key
             )
         )

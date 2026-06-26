@@ -219,7 +219,7 @@ html, body, [data-testid="stAppViewContainer"] {
     font-family: 'Lora', serif !important;
     background: transparent !important;
     border: none !important;
-    color: #000000 !important;
+    color: #FFFFFF !important;
     font-size: 0.97rem !important;
 }
 [data-testid="stTextInput"] input::placeholder {

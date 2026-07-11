@@ -1,10 +1,13 @@
 langchain
 langchain-community
-python-dotenv
+langchain-google-genai
 langchain-groq
 langchain-huggingface
-sentence-transformers
-streamlit
 langchain-chroma
 langchain-text-splitters
+sentence-transformers
+google-generativeai
+chromadb
+streamlit
+python-dotenv
 pydantic>=2.0

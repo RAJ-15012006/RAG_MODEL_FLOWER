@@ -219,7 +219,7 @@ html, body, [data-testid="stAppViewContainer"] {
     font-family: 'Lora', serif !important;
     background: transparent !important;
     border: none !important;
-    color: #FFFFFF !important;
+    color: #000000 !important;
     font-size: 0.97rem !important;
 }
 [data-testid="stTextInput"] input::placeholder {
@@ -321,8 +321,9 @@ groq_api_key = None
 for key in ["GROQ_API_KEY"]:
     try:
         groq_api_key = st.secrets[key]
-        break
-    except:
+        if groq_api_key:
+            break
+    except (KeyError, FileNotFoundError):
         groq_api_key = os.environ.get(key)
         if groq_api_key:
             break

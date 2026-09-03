@@ -219,15 +219,19 @@ html, body, [data-testid="stAppViewContainer"] {
     font-family: 'Lora', serif !important;
     background: transparent !important;
     border: none !important;
-    color: #000000 !important;
+    color: #ffffff !important;
     font-size: 0.97rem !important;
 }
 [data-testid="stTextInput"] input::placeholder {
-    color: rgba(255,255,255,0.6) !important;
+    color: rgba(255,255,255,0.75) !important;
 }
 [data-testid="stTextInput"] input:focus {
+    color: #ffffff !important;
     box-shadow: none !important;
     outline: none !important;
+}
+[data-testid="stChatInput"] textarea, [data-testid="stChatInput"] input {
+    color: #ffffff !important;
 }
 [data-testid="stForm"] [data-testid="stFormSubmitButton"] button {
     background: linear-gradient(135deg, #C2185B, #9C27B0) !important;
@@ -372,19 +376,14 @@ def create_vectorstore(_docs):
 vectorstore = create_vectorstore(docs)
 retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
 
-# ======================================
-# LLM (GROQ - Fast & Free Tier)
-# ======================================
-llm = ChatGroq(
-    model="llama-3.3-70b-versatile",
-    temperature=0.3,
-    groq_api_key=groq_api_key,
-    max_retries=3
-)
+GROQ_MODELS = [
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
+    "llama3-70b-8192",
+    "llama3-8b-8192",
+    "mixtral-8x7b-32768"
+]
 
-# ======================================
-# RAG FUNCTION
-# ======================================
 def combine_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
 
@@ -406,7 +405,30 @@ Question: {question}
 
 Answer:
 """
-    response = llm.invoke(prompt)
+    response = None
+    last_err = None
+    for model_name in GROQ_MODELS:
+        try:
+            llm_inst = ChatGroq(
+                model=model_name,
+                temperature=0.3,
+                groq_api_key=groq_api_key,
+                max_retries=2
+            )
+            response = llm_inst.invoke(prompt)
+            break
+        except Exception as e:
+            last_err = e
+            err_msg = str(e).lower()
+            if "does not exist" in err_msg or "404" in err_msg or "model_not_found" in err_msg:
+                continue
+            raise e
+
+    if response is None:
+        if last_err:
+            raise last_err
+        else:
+            raise RuntimeError("No Groq models were able to respond.")
 
     content = response.content
     if isinstance(content, list):

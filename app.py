@@ -379,9 +379,9 @@ retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
 GROQ_MODELS = [
     "llama-3.3-70b-versatile",
     "llama-3.1-8b-instant",
-    "llama3-70b-8192",
-    "llama3-8b-8192",
-    "mixtral-8x7b-32768"
+    "gemma2-9b-it",
+    "mixtral-8x7b-32768",
+    "llama-3.2-3b-preview"
 ]
 
 def combine_docs(docs):
@@ -420,7 +420,7 @@ Answer:
         except Exception as e:
             last_err = e
             err_msg = str(e).lower()
-            if "does not exist" in err_msg or "404" in err_msg or "model_not_found" in err_msg:
+            if any(k in err_msg for k in ["does not exist", "404", "model_not_found", "decommissioned", "not supported"]):
                 continue
             raise e
 

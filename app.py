@@ -377,11 +377,11 @@ vectorstore = create_vectorstore(docs)
 retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
 
 GROQ_MODELS = [
-    "llama-3.3-70b-versatile",
-    "llama-3.1-8b-instant",
-    "gemma2-9b-it",
-    "mixtral-8x7b-32768",
-    "llama-3.2-3b-preview"
+    "groq/compound-mini",
+    "groq/compound",
+    "qwen/qwen3.6-27b",
+    "openai/gpt-oss-20b",
+    "allam-2-7b"
 ]
 
 def combine_docs(docs):
@@ -416,19 +416,17 @@ Answer:
                 max_retries=2
             )
             response = llm_inst.invoke(prompt)
-            break
+            if response and response.content:
+                break
         except Exception as e:
             last_err = e
-            err_msg = str(e).lower()
-            if any(k in err_msg for k in ["does not exist", "404", "model_not_found", "decommissioned", "not supported"]):
-                continue
-            raise e
+            continue
 
     if response is None:
         if last_err:
             raise last_err
         else:
-            raise RuntimeError("No Groq models were able to respond.")
+            raise RuntimeError("No active Groq models were able to respond.")
 
     content = response.content
     if isinstance(content, list):
